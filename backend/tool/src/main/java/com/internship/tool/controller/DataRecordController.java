@@ -12,7 +12,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -100,5 +102,41 @@ public class DataRecordController {
     @Operation(summary = "Get dashboard statistics")
     public ResponseEntity<Map<String, Long>> getStats() {
         return ResponseEntity.ok(dataRecordService.getStats());
+    }
+
+    @GetMapping("/export")
+    @Operation(summary = "Export all records as CSV")
+    public ResponseEntity<byte[]> exportCsv() {
+        StringBuilder csv = new StringBuilder();
+        csv.append("ID,Name,DataType,Owner,Department,Status,RetentionYears,CreatedDate,ExpiryDate\n");
+
+        dataRecordService.getAllRecords(PageRequest.of(0, Integer.MAX_VALUE))
+                .getContent()
+                .forEach(r -> csv.append(String.format("%d,%s,%s,%s,%s,%s,%d,%s,%s\n",
+                        r.getId(),
+                        escapeCsv(r.getName()),
+                        escapeCsv(r.getDataType()),
+                        escapeCsv(r.getOwner()),
+                        escapeCsv(r.getDepartment()),
+                        r.getStatus(),
+                        r.getRetentionYears(),
+                        r.getCreatedDate(),
+                        r.getExpiryDate()
+                )));
+
+        byte[] csvBytes = csv.toString().getBytes();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDispositionFormData("attachment", "data-records.csv");
+
+        return ResponseEntity.ok().headers(headers).body(csvBytes);
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 }
