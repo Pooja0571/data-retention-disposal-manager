@@ -7,6 +7,20 @@ HEADERS = {"Content-Type": "application/json"}
 
 results = []
 
+# Get JWT token for authentication
+def get_auth_token():
+    try:
+        token_response = requests.post("http://localhost:5000/auth/token")
+        if token_response.status_code == 200:
+            token_data = token_response.json()
+            return token_data["token"]
+        else:
+            print(f"Failed to get token: {token_response.text}")
+            return None
+    except Exception as e:
+        print(f"Error getting token: {e}")
+        return None
+
 def classify(test_name, payload, response, status_code):
     text = json.dumps(response)
 
@@ -19,6 +33,7 @@ def classify(test_name, payload, response, status_code):
     if "Empty" in test_name:
         if status_code == 400:
             status = "PASS"
+            note = "Empty input correctly rejected"
         else:
             status = "FAIL"
             severity = "MEDIUM"
@@ -64,7 +79,25 @@ def classify(test_name, payload, response, status_code):
 
 def send_request(name, payload):
     try:
-        r = requests.post(BASE_URL, headers=HEADERS, json=payload)
+        # Get auth token
+        token = get_auth_token()
+        if not token:
+            results.append({
+                "test": name,
+                "payload": payload,
+                "status_code": "ERROR",
+                "response": "Failed to get authentication token",
+                "result": "FAIL",
+                "severity": "HIGH",
+                "note": "Authentication failed"
+            })
+            return
+        
+        # Add authorization header
+        auth_headers = HEADERS.copy()
+        auth_headers["Authorization"] = f"Bearer {token}"
+        
+        r = requests.post(BASE_URL, headers=auth_headers, json=payload)
         try:
             response = r.json()
         except:
@@ -135,41 +168,29 @@ def test_prompt_injection():
 
 
 # -----------------------------
-# WRITE SECURITY.md
+# WRITE JSON REPORT
 # -----------------------------
 def write_report():
-    with open("SECURITY.md", "w") as f:
-        f.write("# Security Testing Report\n\n")
-        f.write(f"**Date:** {datetime.now()}\n\n")
+    # Write JSON report
+    security_report = {
+        "metadata": {
+            "date": datetime.now().isoformat(),
+            "base_url": BASE_URL,
+            "total_tests": len(results)
+        },
+        "results": results,
+        "summary": {}
+    }
+    
+    # Calculate summary
+    for r in results:
+        key = r["result"]
+        security_report["summary"][key] = security_report["summary"].get(key, 0) + 1
+    
+    with open("security_report.json", "w") as f:
+        json.dump(security_report, f, indent=2)
 
-        f.write("## Test Results\n\n")
-
-        for r in results:
-            f.write(f"### {r['test']}\n")
-            f.write(f"- **Result:** {r['result']}\n")
-            f.write(f"- **Severity:** {r['severity']}\n")
-            if r["note"]:
-                f.write(f"- **Note:** {r['note']}\n")
-
-            f.write(f"\n**Payload:** `{r['payload']}`\n\n")
-            f.write(f"**Status Code:** {r['status_code']}\n\n")
-
-            f.write("**Response:**\n```json\n")
-            f.write(json.dumps(r["response"], indent=2))
-            f.write("\n```\n\n")
-
-        # Summary
-        f.write("## Summary\n\n")
-
-        summary = {}
-        for r in results:
-            key = r["result"]
-            summary[key] = summary.get(key, 0) + 1
-
-        for k, v in summary.items():
-            f.write(f"- {k}: {v}\n")
-
-    print("✅ SECURITY.md generated")
+    print("✅ security_report.json generated")
 
 
 # -----------------------------
