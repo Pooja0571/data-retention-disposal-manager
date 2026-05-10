@@ -21,6 +21,8 @@ This system provides:
 - Docker (for ZAP scanning)
 
 ### Installation
+
+#### **Linux/macOS**
 ```bash
 # Clone repository
 git clone <repository-url>
@@ -30,6 +32,22 @@ cd data-retention-disposal-manager
 cd ai-service
 python -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
+
+# Start the service
+python app.py
+```
+
+#### **Windows**
+```cmd
+# Clone repository
+git clone <repository-url>
+cd data-retention-disposal-manager
+
+# Setup AI service
+cd ai-service
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 
 # Start the service
@@ -107,7 +125,27 @@ print(response.json())
 ## 🧪 Testing
 
 ### Run All Tests
+
+#### **Linux/macOS**
 ```bash
+# Unit tests (12 tests)
+cd ai-service && python test_api.py
+
+# Integration tests (5 scenarios)
+python test_runner.py
+
+# Security tests (6 tests)
+python security_test.py
+
+# AI safety tests (6 tests)
+python ai_safety_test.py
+
+# Vulnerability scanning
+python zap_scan.py
+```
+
+#### **Windows**
+```cmd
 # Unit tests (12 tests)
 cd ai-service && python test_api.py
 
